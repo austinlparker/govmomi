@@ -691,11 +691,10 @@ func (f *Finder) FolderOrDefault(ctx context.Context, path string) (*object.Fold
 }
 
 func (f *Finder) VirtualMachineList(ctx context.Context, path string) ([]*object.VirtualMachine, error) {
-	es, err := f.find(ctx, f.vmFolder, false, path)
+	es, err := f.find(ctx, f.vmFolder, true, path)
 	if err != nil {
 		return nil, err
 	}
-
 	var vms []*object.VirtualMachine
 	for _, e := range es {
 		switch o := e.Object.(type) {
@@ -704,7 +703,7 @@ func (f *Finder) VirtualMachineList(ctx context.Context, path string) ([]*object
 			vm.InventoryPath = e.Path
 			vms = append(vms, vm)
 		case mo.Folder:
-			f.findVirtualMachineListForFolder(ctx, e.Object, &vms)
+			f.recursiveVMList(ctx, e.Path, &vms)
 		}
 	}
 
@@ -715,26 +714,18 @@ func (f *Finder) VirtualMachineList(ctx context.Context, path string) ([]*object
 	return vms, nil
 }
 
-//foreach all Folder
-func (f *Finder) findVirtualMachineListForFolder(ctx context.Context, fobj object.Reference, vms *[]*object.VirtualMachine) {
-	if string(fobj.Reference().Type) != "Folder" {
-		return
-	}
-	folder := object.NewFolder(f.client, fobj.Reference())
-	childs, err := folder.Children(ctx)
-	if err != nil {
-		return
-	}
-	for _, chie := range childs {
-		switch chie.Reference().Type {
-		case "VirtualMachine":
-			vm := object.NewVirtualMachine(f.client, chie.Reference())
-			//vm.InventoryPath?
-			*vms = append(*vms, vm)
-		case "Folder":
-			f.findVirtualMachineListForFolder(ctx, chie, vms)
-		}
+func (f *Finder) recursiveVMList(ctx context.Context, path string, vms *[]*object.VirtualMachine) {
+	es, _ := f.find(ctx, f.vmFolder, true, path)
 
+	for _, e := range es {
+		switch o := e.Object.(type) {
+		case mo.VirtualMachine:
+			vm := object.NewVirtualMachine(f.client, o.Reference())
+			vm.InventoryPath = e.Path
+			*vms = append(*vms, vm)
+		case mo.Folder:
+			f.recursiveVMList(ctx, e.Path, vms)
+		}
 	}
 }
 
