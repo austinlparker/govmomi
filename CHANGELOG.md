@@ -1,6 +1,30 @@
 # changelog
 
-### unreleased
+### 0.8.0 (2016-06-30)
+
+* Add session.Manager.AcquireLocalTicket
+
+* Include StoragePod in Finder.FolderList
+
+* Add Finder methods for finding by ManagedObjectReference: Element, ObjectReference
+
+* Add mo.ManagedObjectReference methods: Reference, String, FromString
+
+* Add support using SessionManagerGenericServiceTicket.HostName for Datastore HTTP access
+
+### 0.7.1 (2016-06-03)
+
+* Fix object.ObjectName method
+
+### 0.7.0 (2016-06-02)
+
+* Move InventoryPath field to object.Common
+
+* Add HostDatastoreSystem.CreateLocalDatastore method
+
+* Add DatastoreNamespaceManager methods: CreateDirectory, DeleteDirectory
+
+* Add HostServiceSystem
 
 * Add HostStorageSystem methods: MarkAsSdd, MarkAsNonSdd, MarkAsLocal, MarkAsNonLocal
 

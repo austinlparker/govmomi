@@ -177,6 +177,35 @@ func (cmd *ovfx) Map(op []Property) (p []types.KeyValue) {
 	return
 }
 
+func (cmd *ovfx) NetworkMap(e *ovf.Envelope) (p []types.OvfNetworkMapping) {
+	finder, err := cmd.DatastoreFlag.Finder()
+	if err != nil {
+		return
+	}
+
+	networks := map[string]string{}
+
+	if e.Network != nil {
+		for _, net := range e.Network.Networks {
+			networks[net.Name] = net.Name
+		}
+	}
+
+	for _, net := range cmd.Options.NetworkMapping {
+		networks[net.Name] = net.Network
+	}
+
+	for src, dst := range networks {
+		if net, err := finder.Network(context.TODO(), dst); err == nil {
+			p = append(p, types.OvfNetworkMapping{
+				Name:    src,
+				Network: net.Reference(),
+			})
+		}
+	}
+	return
+}
+
 func (cmd *ovfx) Import(fpath string) (*types.ManagedObjectReference, error) {
 	o, err := cmd.ReadOvf(fpath)
 	if err != nil {
@@ -215,6 +244,7 @@ func (cmd *ovfx) Import(fpath string) (*types.ManagedObjectReference, error) {
 			DeploymentOption: cmd.Options.Deployment,
 			Locale:           "US"},
 		PropertyMapping: cmd.Map(cmd.Options.PropertyMapping),
+		NetworkMapping:  cmd.NetworkMap(e),
 	}
 
 	m := object.NewOvfManager(cmd.Client)
@@ -228,6 +258,15 @@ func (cmd *ovfx) Import(fpath string) (*types.ManagedObjectReference, error) {
 	if spec.Warning != nil {
 		for _, w := range spec.Warning {
 			_, _ = cmd.Log(fmt.Sprintf("Warning: %s\n", w.LocalizedMessage))
+		}
+	}
+
+	if cmd.Options.Annotation != "" {
+		switch s := spec.ImportSpec.(type) {
+		case *types.VirtualMachineImportSpec:
+			s.ConfigSpec.Annotation = cmd.Options.Annotation
+		case *types.VirtualAppImportSpec:
+			s.VAppConfigSpec.Annotation = cmd.Options.Annotation
 		}
 	}
 
@@ -349,7 +388,7 @@ func (cmd *ovfx) InjectOvfEnv(vm *object.VirtualMachine) error {
 	}
 
 	a := cmd.Client.ServiceContent.About
-	if strings.EqualFold(a.ProductLineId, "esx") || strings.EqualFold(a.ProductLineId, "embeddedEsx") {
+	if strings.EqualFold(a.ProductLineId, "esx") || strings.EqualFold(a.ProductLineId, "embeddedEsx") || strings.EqualFold(a.ProductLineId, "vpx") {
 		cmd.Log("Injecting OVF environment...\n")
 
 		// build up Environment in order to marshal to xml

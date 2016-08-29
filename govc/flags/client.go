@@ -23,6 +23,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ import (
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 )
 
@@ -310,6 +312,14 @@ func (flag *ClientFlag) loadClient() (*vim25.Client, error) {
 	m := session.NewManager(c)
 	u, err := m.UserSession(context.TODO())
 	if err != nil {
+		if soap.IsSoapFault(err) {
+			fault := soap.ToSoapFault(err).VimFault()
+			// If the PropertyCollector is not found, the saved session for this URL is not valid
+			if _, ok := fault.(types.ManagedObjectNotFound); ok {
+				return nil, nil
+			}
+		}
+
 		return nil, err
 	}
 
@@ -351,6 +361,15 @@ func (flag *ClientFlag) newClient() (*vim25.Client, error) {
 
 	m := session.NewManager(c)
 	u := flag.url.User
+
+	if u.Username() == "" {
+		// Assume we are running on an ESX or Workstation host if no username is provided
+		u, err = flag.localTicket(context.TODO(), m)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if isTunnel {
 		err = m.LoginExtensionByCertificate(context.TODO(), u.Username(), "")
 		if err != nil {
@@ -369,6 +388,20 @@ func (flag *ClientFlag) newClient() (*vim25.Client, error) {
 	}
 
 	return c, nil
+}
+
+func (flag *ClientFlag) localTicket(ctx context.Context, m *session.Manager) (*url.Userinfo, error) {
+	ticket, err := m.AcquireLocalTicket(ctx, os.Getenv("USER"))
+	if err != nil {
+		return nil, err
+	}
+
+	password, err := ioutil.ReadFile(ticket.PasswordFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return url.UserPassword(ticket.UserName, string(password)), nil
 }
 
 // apiVersionValid returns whether or not the API version supported by the
@@ -432,6 +465,16 @@ func (flag *ClientFlag) Client() (*vim25.Client, error) {
 
 	flag.client = c
 	return flag.client, nil
+}
+
+func (flag *ClientFlag) Logout(ctx context.Context) error {
+	if flag.persist || flag.client == nil {
+		return nil
+	}
+
+	m := session.NewManager(flag.client)
+
+	return m.Logout(ctx)
 }
 
 // Environ returns the govc environment variables for this connection

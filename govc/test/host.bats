@@ -80,6 +80,22 @@ load test_helper
   assert_success
 }
 
+@test "host.vswitch.info" {
+  run govc host.vswitch.info
+  assert_success
+
+  run govc host.vswitch.info -json
+  assert_success
+}
+
+@test "host.portgroup.info" {
+  run govc host.portgroup.info
+  assert_success
+
+  run govc host.portgroup.info -json
+  assert_success
+}
+
 @test "host.options" {
     run govc host.option.ls Config.HostAgent.plugins.solo.enableMob
     assert_success
@@ -92,4 +108,15 @@ load test_helper
 
     run govc host.option.ls Config.HostAgent.plugins.solo.ENOENT
     assert_failure
+}
+
+@test "host.service" {
+    run govc host.service.ls
+    assert_success
+
+    run govc host.service.ls -json
+    assert_success
+
+    run govc host.service status TSM-SSH
+    assert_success
 }

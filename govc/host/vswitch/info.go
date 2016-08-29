@@ -19,7 +19,7 @@ package vswitch
 import (
 	"flag"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"text/tabwriter"
 
@@ -27,6 +27,7 @@ import (
 	"github.com/vmware/govmomi/govc/flags"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 )
 
@@ -81,26 +82,53 @@ func (cmd *info) Run(ctx context.Context, f *flag.FlagSet) error {
 		return err
 	}
 
-	tw := tabwriter.NewWriter(os.Stdout, 2, 0, 2, ' ', 0)
+	r := &infoResult{mns.NetworkInfo.Vswitch}
 
-	for i, s := range mns.NetworkInfo.Vswitch {
+	return cmd.WriteResult(r)
+}
+
+type infoResult struct {
+	Vswitch []types.HostVirtualSwitch
+}
+
+func (r *infoResult) Write(w io.Writer) error {
+	tw := tabwriter.NewWriter(w, 2, 0, 2, ' ', 0)
+
+	for i, s := range r.Vswitch {
 		if i > 0 {
 			fmt.Fprintln(tw)
 		}
 		fmt.Fprintf(tw, "Name:\t%s\n", s.Name)
-		fmt.Fprintf(tw, "Portgroup:\t%s\n", cmd.keys("key-vim.host.PortGroup-", s.Portgroup))
-		fmt.Fprintf(tw, "Pnic:\t%s\n", cmd.keys("key-vim.host.PhysicalNic-", s.Pnic))
+		fmt.Fprintf(tw, "Portgroup:\t%s\n", keys("key-vim.host.PortGroup-", s.Portgroup))
+		fmt.Fprintf(tw, "Pnic:\t%s\n", keys("key-vim.host.PhysicalNic-", s.Pnic))
 		fmt.Fprintf(tw, "MTU:\t%d\n", s.Mtu)
 		fmt.Fprintf(tw, "Ports:\t%d\n", s.NumPorts)
 		fmt.Fprintf(tw, "Ports Available:\t%d\n", s.NumPortsAvailable)
+		HostNetworkPolicy(tw, s.Spec.Policy)
 	}
 
 	return tw.Flush()
 }
 
-func (cmd *info) keys(key string, vals []string) string {
+func keys(key string, vals []string) string {
 	for i, val := range vals {
 		vals[i] = strings.TrimPrefix(val, key)
 	}
 	return strings.Join(vals, ", ")
+}
+
+func enabled(b *bool) string {
+	if b != nil && *b {
+		return "Yes"
+	}
+	return "No"
+}
+
+func HostNetworkPolicy(w io.Writer, p *types.HostNetworkPolicy) {
+	if p == nil || p.Security == nil {
+		return // e.g. Workstation
+	}
+	fmt.Fprintf(w, "Allow promiscuous mode:\t%s\n", enabled(p.Security.AllowPromiscuous))
+	fmt.Fprintf(w, "Allow forged transmits:\t%s\n", enabled(p.Security.ForgedTransmits))
+	fmt.Fprintf(w, "Allow MAC changes:\t%s\n", enabled(p.Security.MacChanges))
 }

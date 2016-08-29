@@ -2,6 +2,40 @@
 
 ### unreleased
 
+* Add `-unclaimed` flag to host.storage.info command
+
+### 0.8.0 (2016-06-30)
+
+* If username (`-u` / GOVC_USERNAME) is empty, attempt login via local ticket (Workstation)
+
+* Add StoragePod support to govc folder.create
+
+* Add `-folder` flag to datacenter.create command
+
+* Logout when session persistence is disabled
+
+* Add `-L` flag to ls command for resolving by managed object reference
+
+* Add `-i` flag to ls command for listing the managed object reference
+
+* Add vm.markasvm command
+
+* Add vm.markastemplate command
+
+### 0.7.1 (2016-06-03)
+
+* Fix datastore.{upload,download} against VirtualCenter
+
+### 0.7.0 (2016-06-02)
+
+* Add `-require` flag to version command
+
+* Add support for local type in the datastore.create command
+
+* Add `-namespace` option to datastore.mkdir and datastore.rm to create/remove namespaces on VSANs
+
+* Add host.service command
+
 * Add host.storage.mark command
 
 * Add `-rescan` option to host.storage.info command
